@@ -35,7 +35,7 @@ export interface Model {
   created_at: string;
   name: string;
   prompt: string;
-  option: "gpt-3.5-turbo" | "gpt-3.5-turbo-0301" | "gpt-4" | "gpt-4-0314" | "gpt-4-32k" | "gpt-4-32k-0314" | string;
+  option: string;
   temperature: string;
   pinned: boolean;
   vision?: boolean;
@@ -68,6 +68,7 @@ export type ConversationsHook = Hook<Conversation> & { update: PromiseFunctionWi
 export type QuestionHook = BaseHook<string> & { update: PromiseFunctionWithOneArg<string> };
 
 export type ModelHook = Hook<Model> & {
+  setModels: PromiseFunctionWithOneArg<Model[]>;
   update: PromiseFunctionWithOneArg<Model>;
   option: Model["option"][];
   isFetching: boolean;
@@ -94,6 +95,7 @@ export interface ChangeModelProp {
 export interface QuestionFormProps extends ChangeModelProp {
   initialQuestion: string;
   onSubmit: (question: string, files: string[]) => void;
+  isFirstCall?: boolean;
 }
 
 export interface ChatViewProps extends ChangeModelProp {
@@ -109,3 +111,16 @@ export interface CSVPrompt {
   act: string;
   prompt: string;
 }
+
+export type ContentFormat = "html" | "text" | "markdown";
+
+export type AskImageProps = {
+  user_prompt: string;
+  load: "clipboard" | "selected";
+  selected_text?: string; // If defined, uses this as selected text
+  user_extra_msg?: string; // Textfield in Form -> If not empty, appends this to the user message
+  model_override?: string;
+  toast_title: string;
+  temperature?: number;
+  content_format?: ContentFormat;
+};

@@ -1,5 +1,26 @@
 # Simple Reminder Changelog
 
+## [Mobile notifications] - 2024-11-29
+
+- Add new configuration for self-hosted ntfy servers
+- Allow for notifications to be sent to self-hosted ntfy server instead of the default public one
+
+## [Documentation] - 2024-07-22
+
+- Update documentation to reflect new features (recurrent reminders and menu bar command) of the extension 
+
+## [Fix] - 2024-06-26
+
+- Fix issue with reminders in the menu bar not presenting the time they are going to trigger
+
+## [Improved developer experience] - 2024-06-17
+
+- Add clearer error messages for the extension maintainers/contributors to better debug and assess errors in production 
+
+## [Reminder Menu Bar] - 2024-05-16
+
+- Fix Reminder length not being cut off if topic length is greater than 30
+
 ## [Reminder Menu Bar] - 2024-05-15
 
 - Add empty reminder action in reminder menu bar to show the user that no reminders are set and that they can add a new reminder

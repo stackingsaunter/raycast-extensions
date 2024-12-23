@@ -5,25 +5,31 @@ import {
   showToast,
   getPreferenceValues,
   Toast,
-  closeMainWindow,
   open,
   openExtensionPreferences,
 } from "@raycast/api";
 import ILovePDFApi from "@ilovepdf/ilovepdf-nodejs";
 import CompressTask from "@ilovepdf/ilovepdf-js-core/tasks/CompressTask";
 import ILovePDFFile from "@ilovepdf/ilovepdf-nodejs/ILovePDFFile";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import fs from "fs";
 import path from "path";
+import { chooseDownloadLocation, getErrorMessage, getFilePath, handleOpenNow, validateFileType } from "./common/utils";
+import { Status } from "./common/types";
+import { useFetchSelectedFinderItems } from "./hook/use-fetch-selected-finder-items";
 
 type Values = {
   files: string[];
   compression_level: "low" | "recommended" | "extreme";
 };
 
-type Status = "init" | "success" | "failure";
-
-const { APIPublicKey: publicKey, APISecretKey: secretKey, OpenNow: openNow } = getPreferenceValues<Preferences>();
+const {
+  APIPublicKey: publicKey,
+  APISecretKey: secretKey,
+  OpenNow: openNow,
+  AskBeforeDownload: askBeforeDownload,
+  SelectFileInFinder: selectFileInFinder,
+} = getPreferenceValues<Preferences>();
 
 function getDestinationFile(files: string[]): string {
   if (!files.length) {
@@ -34,9 +40,9 @@ function getDestinationFile(files: string[]): string {
   const fileName = path.basename(file, fileExtension);
   const directory = path.dirname(file);
   if (files.length == 1) {
-    return path.join(directory, `${fileName}_compressed.pdf`);
+    return getFilePath(directory, `${fileName}_compressed.pdf`);
   }
-  return path.join(directory, `compressed_pdfs.zip`);
+  return getFilePath(directory, `compressed_pdfs.zip`);
 }
 
 function getSavedPercentage(originalFile: string, compressedFile: string) {
@@ -49,14 +55,29 @@ export default function Command() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [status, setStatus] = useState<Status>("init");
   const [destinationFilePath, setDestinationFilePath] = useState<string>("");
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
+
+  const {
+    isLoading: isFinderLoading,
+    selectedFiles: finderSelectedFiles,
+    status: fetchStatus,
+  } = useFetchSelectedFinderItems(selectFileInFinder);
+
+  useEffect(() => {
+    setIsLoading(isFinderLoading);
+    setSelectedFiles(finderSelectedFiles);
+    setStatus(fetchStatus);
+  }, [isFinderLoading, finderSelectedFiles, fetchStatus]);
 
   async function handleSubmit(values: Values) {
     setIsLoading(true);
-    if (!values.files.length) {
-      await showToast(Toast.Style.Failure, "You must select at least a single pdf file", "Please select a file");
+    if (!selectFileInFinder && !values.files.length) {
+      await showToast(Toast.Style.Failure, "You must select at least a single pdf file.", "Please select a file.");
       setStatus("failure");
       setIsLoading(false);
       return;
+    } else {
+      values.files = selectedFiles;
     }
 
     const toast = await showToast(Toast.Style.Animated, "Processing", "Compressing PDF...");
@@ -68,22 +89,36 @@ export default function Command() {
     try {
       await task.start();
       for (const file of values.files) {
-        const fileExtension = path.extname(file);
-        if (fileExtension != ".pdf") {
+        if (!validateFileType(file, "pdf")) {
           toast.style = Toast.Style.Failure;
           toast.title = "failure";
           toast.message = "You must select a PDF file.";
           setStatus("failure");
           setIsLoading(false);
-          console.log(`file is not a PDF received extension is ${fileExtension}`);
+          console.log(`file is not a PDF.`);
           return;
         }
         const iLovePdfFile = new ILovePDFFile(file);
         addedFilesPromises.push(task.addFile(iLovePdfFile));
       }
-      await Promise.all(addedFilesPromises);
       destinationFile = getDestinationFile(values.files);
+      if (askBeforeDownload) {
+        const finalName = await chooseDownloadLocation(
+          destinationFile,
+          "Save The Compression As",
+          setIsLoading,
+          setStatus,
+          toast,
+        );
+        if (finalName == undefined) {
+          return;
+        }
+        destinationFile = finalName;
+      }
+
       setDestinationFilePath(destinationFile);
+
+      await Promise.all(addedFilesPromises);
       await task.process({ compression_level: values.compression_level });
       const data = await task.download();
       fs.writeFileSync(destinationFile, data);
@@ -93,31 +128,20 @@ export default function Command() {
       toast.message =
         "Compressed successfully." +
         (values.files.length == 1
-          ? ` Your PDF is ${getSavedPercentage(values.files[0], destinationFile)}% smaller`
+          ? ` Your PDF is ${getSavedPercentage(values.files[0], destinationFile)}% smaller.`
           : "");
       setStatus("success");
       setIsLoading(false);
     } catch (error) {
       toast.style = Toast.Style.Failure;
       toast.title = "failure";
-      toast.message = "Error happened during compressing the file.";
+      toast.message = `Error happened during compressing the file. Reason ${getErrorMessage(error)}`;
       setStatus("failure");
       setIsLoading(false);
-      console.log(error);
       return;
     }
 
-    if (openNow) {
-      await closeMainWindow();
-      open(destinationFile);
-    } else {
-      toast.primaryAction = {
-        title: "Open File",
-        onAction: () => {
-          open(destinationFile);
-        },
-      };
-    }
+    await handleOpenNow(openNow, destinationFile, toast);
   }
 
   return (
@@ -145,7 +169,11 @@ export default function Command() {
       }
       isLoading={isLoading}
     >
-      <Form.FilePicker id="files" title="Choose PDF files" allowMultipleSelection={true} />
+      {selectFileInFinder ? (
+        <Form.Description title="Finder Selected File" text={selectedFiles.join("\n")} />
+      ) : (
+        <Form.FilePicker id="files" title="Choose PDF files" allowMultipleSelection={true} />
+      )}
       <Form.Dropdown id="compression_level" title="Compression Level" defaultValue="recommended">
         <Form.Dropdown.Item value="recommended" title="Recommended" />
         <Form.Dropdown.Item value="extreme" title="Extreme" />

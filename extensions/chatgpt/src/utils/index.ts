@@ -51,16 +51,14 @@ export const getConfigUrl = (params: Preferences) => {
   return "https://api.openai.com/v1";
 };
 
-export const checkFileValidity = (file: string) => {
+export const checkFileValidity = (file: string): boolean => {
   const fileExtension = path.extname(file);
   const acceptedFileExtensions = Object.keys(formats);
-  if (!acceptedFileExtensions.includes(fileExtension)) {
-    throw new Error(`${fileExtension} is not a valid file type!`);
-  }
+  return acceptedFileExtensions.includes(fileExtension);
 };
 
 // https://developer.mozilla.org/en-US/docs/Web/Media/Formats/Image_types
-const formats: { [K: string]: string } = {
+export const formats: { [K: string]: string } = {
   ".png": "image/png",
   ".jpeg": "image/jpeg",
   ".jpg": "image/jpeg",
@@ -70,16 +68,24 @@ const formats: { [K: string]: string } = {
 
 export const imgFormat = (file: string) => {
   const fileExtension = path.extname(file);
-  const type = formats[fileExtension];
+  let type = formats[fileExtension];
   if (!type) {
-    // should never happen
-    throw new Error(`Image format not supported for ${file}`);
+    // guess it from the clipboard
+    type = formats[".png"];
   }
+  // file:///var/folders/vx/xs9f3rcj74d2wlp32sz0t0h80000gn/T/Image%20(1772x1172)
+  const replace = file.replace("file://", "").replace("%20", " ");
   // data:image/jpeg;base64,{base64_image}
-  return `data:${type};base64,${fs.readFileSync(file).toString("base64")}`;
+  return `data:${type};base64,${fs.readFileSync(replace).toString("base64")}`;
 };
 
-export const buildUserMessage = (question: string, files: string[]) => {
+export const buildUserMessage = (question: string, files?: string[]) => {
+  if (!files || files.length === 0) {
+    // If there is no file, return the question string directly
+    return question;
+  }
+
+  // If there are files, create an array
   const content: ChatCompletionContentPart[] = [
     {
       type: "text",
@@ -96,5 +102,18 @@ export const buildUserMessage = (question: string, files: string[]) => {
       },
     });
   });
+
   return content;
+};
+
+export const toUnit = (size: number) => {
+  const units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+  let unitIndex = 0;
+  let unit = units[unitIndex];
+  while (size >= 1024) {
+    size /= 1024;
+    unitIndex++;
+    unit = units[unitIndex];
+  }
+  return `${size.toFixed(2)} ${unit}`;
 };

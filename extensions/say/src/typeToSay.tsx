@@ -1,11 +1,16 @@
-import { Cache, LaunchProps } from "@raycast/api";
-import { say } from "mac-say";
-import { defaultVoice } from "./constants.js";
+import { LaunchProps } from "@raycast/api";
+import { say, SayOptions } from "mac-say";
+import { omitBy } from "lodash";
+import { getSaySettings, parseSaySettings } from "./utils.js";
 
-const cache = new Cache();
+type LaunchContext = {
+  sayOptions: SayOptions;
+};
 
-export default async function TypeToSay({ arguments: args }: LaunchProps<{ arguments: Arguments.TypeToSay }>) {
-  const cachedVoice = cache.get("voice") ?? `"${defaultVoice}"`;
-  const voice = JSON.parse(cachedVoice);
-  await say(args.content, { voice: voice === defaultVoice ? undefined : voice });
+export default async function TypeToSay({
+  arguments: args,
+  launchContext,
+}: LaunchProps<{ arguments: Arguments.TypeToSay; launchContext?: LaunchContext }>) {
+  const saySettings = parseSaySettings(getSaySettings());
+  await say(args.content, { ...saySettings, ...omitBy(launchContext?.sayOptions, (v) => !v) });
 }
