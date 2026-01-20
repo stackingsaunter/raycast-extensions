@@ -47,15 +47,15 @@ export default function Send(props: LaunchProps<{ arguments: Arguments.Send }>) 
       try {
         try {
           text = await getSelectedText();
-        } catch (e) {
+        } catch {
           // ignore error for getting selected text
         }
         // if nothing was selected we check the clipboard
         if (!text) {
           text = await Clipboard.readText();
         }
-      } catch (e) {
-        console.error(e);
+      } catch (error) {
+        console.error(error);
       }
     }
     if (text && (text.toLowerCase().startsWith("lnbc1") || text.match(LN_ADDRESS_REGEX))) {

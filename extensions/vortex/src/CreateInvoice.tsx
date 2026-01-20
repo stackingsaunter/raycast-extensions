@@ -2,7 +2,7 @@ import { setInterval } from "timers";
 import { useState, useRef, useEffect } from "react";
 import { Form, Detail, ActionPanel, Action, Icon, showToast, environment, Toast } from "@raycast/api";
 import { toDataURL } from "qrcode";
-import { webln } from "@getalby/sdk";
+import type { NostrWebLNProvider } from "@getalby/sdk/webln";
 
 import ConnectionError from "./ConnectionError";
 import { connectWallet } from "./wallet";
@@ -15,9 +15,9 @@ export default function CreateInvoice() {
   const [invoiceState, setInvoiceState] = useState("pending");
   const [loading, setLoading] = useState<boolean>(false);
   const [connectionError, setConnectionError] = useState<unknown>(null);
-  const invoiceCheckerIntervalRef = useRef<NodeJS.Timeout>();
+  const invoiceCheckerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const invoiceCheckCounterRef = useRef(0);
-  const nwc = useRef<webln.NostrWebLNProvider>();
+  const nwc = useRef<NostrWebLNProvider | null>(null);
 
   const checkInvoicePayment = (invoice: string) => {
     if (invoiceCheckerIntervalRef && invoiceCheckerIntervalRef.current) {
@@ -30,17 +30,23 @@ export default function CreateInvoice() {
       showToast(Toast.Style.Animated, "Waiting for payment...");
       // just in case. don't poll too long
       if (invoiceCheckCounterRef.current > 210) {
-        clearInterval(invoiceCheckerIntervalRef.current);
+        if (invoiceCheckerIntervalRef.current) {
+          clearInterval(invoiceCheckerIntervalRef.current);
+          invoiceCheckerIntervalRef.current = null;
+        }
         showToast(Toast.Style.Success, "No longer checking for payments");
       }
       try {
         const response = await nwc.current.lookupInvoice({ paymentRequest: invoice });
         if (response.paid && response.preimage) {
-          clearInterval(invoiceCheckerIntervalRef.current);
+          if (invoiceCheckerIntervalRef.current) {
+            clearInterval(invoiceCheckerIntervalRef.current);
+            invoiceCheckerIntervalRef.current = null;
+          }
           setInvoiceState("paid");
           showToast(Toast.Style.Success, "Invoice paid");
         }
-      } catch (e) {
+      } catch {
         // ignore errors
       } finally {
         invoiceCheckCounterRef.current = invoiceCheckCounterRef.current + 1;
@@ -56,9 +62,10 @@ export default function CreateInvoice() {
 
     try {
       setLoading(true);
-      nwc.current = await connectWallet();
+      const wallet = await connectWallet();
+      nwc.current = wallet;
       showToast(Toast.Style.Animated, "Requesting invoice...");
-      const invoiceResponse = await nwc.current.makeInvoice({
+      const invoiceResponse = await wallet.makeInvoice({
         amount, // This should be the amount in satoshis
         defaultMemo: description,
       });

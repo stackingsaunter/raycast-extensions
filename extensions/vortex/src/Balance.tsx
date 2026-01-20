@@ -1,7 +1,7 @@
 import "cross-fetch/polyfill";
 import { useEffect, useState } from "react";
 import { ActionPanel, Detail, Action, showToast, Toast, getPreferenceValues } from "@raycast/api";
-import { fiat } from "@getalby/lightning-tools";
+import { getFormattedFiatValue } from "@getalby/lightning-tools/fiat";
 import { connectWallet } from "./wallet";
 import ConnectionError from "./ConnectionError";
 
@@ -16,7 +16,7 @@ export default function ShowBalance() {
     try {
       const nwc = await connectWallet(); // Connect and get the wallet instance
       const balanceInfo = await nwc.getBalance(); // Fetch the balance from the connected wallet
-      const fiatBalance = await fiat.getFormattedFiatValue({
+      const fiatBalance = await getFormattedFiatValue({
         satoshi: balanceInfo.balance,
         currency: fiatCurrency,
         locale: "en",

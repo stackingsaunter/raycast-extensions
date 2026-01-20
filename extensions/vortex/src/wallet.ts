@@ -1,21 +1,24 @@
-import { webln } from "@getalby/sdk";
 import { getPreferenceValues } from "@raycast/api";
 import "websocket-polyfill";
-import * as crypto from "crypto";
-// eslint-disable-next-line
-globalThis.crypto = crypto as any;
+import { webcrypto } from "crypto";
+
+// Ensure WebCrypto is available for NWC/nostr tooling in the Raycast runtime.
+if (!globalThis.crypto || typeof globalThis.crypto.getRandomValues !== "function") {
+  globalThis.crypto = webcrypto as Crypto;
+}
 
 interface Preferences {
   nwcurl: string;
 }
 
 // Function to connect the wallet using the NWC URL components
-export const connectWallet = async () => {
+export const connectWallet = async (): Promise<import("@getalby/sdk/webln").NostrWebLNProvider> => {
   try {
     const preferences = getPreferenceValues<Preferences>();
     const nwcUrl = preferences.nwcurl;
 
-    const nwc = new webln.NostrWebLNProvider({
+    const { NostrWebLNProvider } = await import("@getalby/sdk/webln");
+    const nwc = new NostrWebLNProvider({
       nostrWalletConnectUrl: nwcUrl,
     });
 
