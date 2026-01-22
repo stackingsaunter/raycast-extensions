@@ -45,7 +45,7 @@ export default function Transactions() {
         showToast(Toast.Style.Animated, "Loading transactions...");
         const response = await nwc.listTransactions({});
         const balanceInfo = await nwc.getBalance(); // Fetch the balance from the connected wallet
-        const fiatCurrency = getPreferenceValues<{ currency: string }>().currency;
+        const fiatCurrency = getPreferenceValues<Preferences>().currency;
         const fiatBalance = await getFormattedFiatValue({
           satoshi: balanceInfo.balance,
           currency: fiatCurrency,
@@ -74,7 +74,7 @@ export default function Transactions() {
     <List isLoading={isLoading}>
       {!isLoading && (
         <List.Item
-          key="balane"
+          key="balance"
           title={`Balance: ${balance} (${fiatBalance})`}
           icon={{ source: Icon.Wallet, tintColor: Color.Green }}
         />

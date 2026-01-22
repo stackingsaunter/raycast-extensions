@@ -1,4 +1,7 @@
-const raycast = require("@raycast/eslint-config");
+import { defineConfig } from "eslint/config";
+import raycastConfig from "@raycast/eslint-config";
 
-module.exports = Array.isArray(raycast) ? raycast.flat() : raycast;
+const config = Array.isArray(raycastConfig) ? raycastConfig.flat() : [raycastConfig];
+
+export default defineConfig(config);
 
